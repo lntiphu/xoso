@@ -1,1 +1,512 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vietlott AI Analytics - Dự Đoán & Thống Kê Xổ Số Mega 6/45 & Power 6/55</title>
+  <meta name="description" content="Nền tảng phân tích xác suất thống kê xổ số Vietlott Mega 6/45 và Power 6/55. Dự đoán 6 bộ số tối ưu dựa trên dữ liệu lịch sử chính thức, phân phối Gauss và mô phỏng Monte Carlo.">
+  
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-theme="mega645">
 
+  <!-- ==================== HEADER ==================== -->
+  <header class="site-header">
+    <div class="container header-inner">
+
+      <!-- Bộ chọn Chế độ Chính: Vietlott vs Xổ số Miền Nam -->
+      <div class="main-mode-switcher">
+        <button class="mode-btn" data-main-mode="vietlott">
+          <span>🎰</span> Vietlott
+        </button>
+        <button class="mode-btn active" data-main-mode="traditional">
+          <span>🌴</span> Xổ Số Miền Nam
+        </button>
+      </div>
+
+      <!-- Bộ chọn loại hình Vietlott (chỉ hiện khi chọn Vietlott) -->
+      <div class="lottery-switcher" id="vietlott-sub-switcher" style="display: none;">
+        <button class="lottery-tab-btn active" data-type="mega645">
+          <span>🔴</span> Mega 6/45
+        </button>
+        <button class="lottery-tab-btn" data-type="power655">
+          <span>🔵</span> Power 6/55
+        </button>
+      </div>
+
+      <!-- Trạng thái & Đồng bộ trực tuyến -->
+      <div class="data-sync-group">
+        <div class="status-badge" id="data-status-badge">Đang tải dữ liệu...</div>
+        <button class="btn btn-sync" id="btn-sync-data" title="Kiểm tra kỳ quay mới nhất từ máy chủ">
+          <span class="sync-icon">🔄</span> Cập nhật dữ liệu
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== VIETLOTT SECTION WRAPPER ==================== -->
+  <div id="vietlott-section-wrapper" style="display: none;">
+
+  <!-- ==================== HERO SECTION ==================== -->
+  <section class="hero-section">
+    <div class="container">
+      <div class="hero-grid">
+        
+        <!-- Cột 1: Kết quả kỳ quay mới nhất -->
+        <div class="hero-card">
+          <div class="hero-card-header">
+            <div class="card-title-group">
+              <span class="badge-sub">Kết quả chính thức từ Vietlott</span>
+              <h2 id="latest-draw-id">Kỳ quay #00000</h2>
+            </div>
+            <span class="meta-schedule" id="lottery-schedule">Lịch quay thưởng</span>
+          </div>
+
+          <div class="hero-balls-wrapper" id="latest-draw-balls">
+            <!-- Render 6 bóng số trúng thưởng chính (+ bóng bonus nếu 6/55) -->
+          </div>
+
+          <div class="hero-card-footer">
+            <span id="latest-draw-date">--/--/----</span>
+            <div class="quick-stats">
+              <span id="latest-draw-sum">Tổng điểm: --</span>
+              <span id="latest-draw-evenodd">-- Chẵn - -- Lẻ</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cột 2: Bộ số dự đoán cho kỳ tới -->
+        <div class="hero-card hero-prediction-card">
+          <div class="hero-card-header">
+            <div class="card-title-group">
+              <h2 id="prediction-target-draw">Dự đoán cho Kỳ tiếp theo</h2>
+              <span class="prediction-draw-date" id="prediction-draw-date" style="font-size: 0.85rem; color: #38bdf8; font-weight: 700; margin-top: 0.25rem; display: block;">
+                📅 Quay thưởng: --/--/----
+              </span>
+            </div>
+          </div>
+
+          <div class="hero-balls-wrapper" id="hero-prediction-balls">
+            <!-- 6 bóng số dự đoán chính -->
+          </div>
+
+          <div class="hero-card-footer">
+            <div class="hero-card-actions">
+              <button class="btn btn-primary" id="btn-copy-hero">
+                📋 Sao chép bộ số
+              </button>
+              <button class="btn btn-outline" id="btn-regenerate-hero">
+                🎲 Dự đoán lại
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== NAVIGATION TABS ==================== -->
+  <section class="content-nav-section">
+    <div class="container">
+      <div class="nav-tabs-bar">
+        <button class="main-nav-btn active" data-tab="tab-predictions">
+          <span>🎯</span> 6 Bộ Số Dự Đoán
+        </button>
+        <button class="main-nav-btn" data-tab="tab-statistics">
+          <span>📊</span> Thống Kê Xác Suất Chuyên Sâu
+        </button>
+        <button class="main-nav-btn" data-tab="tab-ticket-checker">
+          <span>🔍</span> Chấm Điểm & Kiểm Tra Vé
+        </button>
+        <button class="main-nav-btn" data-tab="tab-history">
+          <span>📜</span> Lịch Sử Kỳ Quay Vietlott (<span id="total-draws-count">0</span>)
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== TAB 1: 6 BỘ SỐ DỰ ĐOÁN ==================== -->
+  <main class="container">
+    <section class="tab-content-panel active" id="tab-predictions">
+      
+      <!-- Lưới 6 bộ số dự đoán theo 6 chiến lược toán học -->
+      <div class="prediction-cards-grid" id="prediction-cards-grid">
+        <!-- Render 6 thẻ dự đoán độc lập bằng JS -->
+      </div>
+
+    </section>
+
+    <!-- ==================== TAB 2: THỐNG KÊ CHUYÊN SÂU ==================== -->
+    <section class="tab-content-panel" id="tab-statistics">
+      
+      <!-- Thanh bộ lọc số kỳ xét -->
+      <div class="stats-filter-bar">
+        <div>
+          <h3>Thống Kê Xác Suất Động</h3>
+          <p style="color: var(--text-secondary); font-size: 0.85rem;">Phân tích các chỉ số tần suất, độ lệch chuẩn Gauss và chu kỳ lô gan.</p>
+        </div>
+        <div class="filter-btn-group">
+          <button class="filter-range-btn" data-range="30">30 kỳ gần nhất</button>
+          <button class="filter-range-btn" data-range="50">50 kỳ</button>
+          <button class="filter-range-btn" data-range="100">100 kỳ</button>
+          <button class="filter-range-btn active" data-range="all">Toàn bộ lịch sử</button>
+        </div>
+      </div>
+
+      <!-- Hàng KPI Tóm Tắt -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <span class="kpi-label">Tổng kỳ phân tích</span>
+          <div class="kpi-value" id="kpi-total-draws">0</div>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Số Nóng Nhất 🔥</span>
+          <div class="kpi-value" id="kpi-hot-number">--</div>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Số Gan Lâu Nhất ❄️</span>
+          <div class="kpi-value" id="kpi-cold-number">--</div>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Cặp Số Vàng 🤝</span>
+          <div class="kpi-value" id="kpi-top-pair">--</div>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Tổng Điểm TB (μ)</span>
+          <div class="kpi-value" id="kpi-avg-sum">--</div>
+        </div>
+      </div>
+
+      <!-- Bảng Nhiệt Ma Trận Toàn Bộ Các Số -->
+      <div class="heatmap-card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h4>Bảng Nhiệt Tần Suất & Lô Gan (Heatmap)</h4>
+          <small style="color: var(--text-muted);">Màu xanh: Về ít / Đang gan &nbsp;•&nbsp; Màu đỏ lửa: Về nhiều / Đang hot</small>
+        </div>
+        <div class="heatmap-grid" id="heatmap-container">
+          <!-- Render các ô số nhiệt độ -->
+        </div>
+      </div>
+
+      <!-- Top 10 Số Nóng vs Top 10 Số Lạnh -->
+      <div class="hotcold-grid">
+        <div class="hotcold-card">
+          <div class="hotcold-header">
+            <span>🔥</span>
+            <h4>Top 10 Bóng Số Nóng (Về nhiều nhất)</h4>
+          </div>
+          <div class="hotcold-list" id="top-hot-list"></div>
+        </div>
+
+        <div class="hotcold-card">
+          <div class="hotcold-header">
+            <span>❄️</span>
+            <h4>Top 10 Bóng Số Lạnh / Lô Gan (Lâu chưa về)</h4>
+          </div>
+          <div class="hotcold-list" id="top-cold-list"></div>
+        </div>
+      </div>
+
+      <!-- Biểu đồ Chart.js -->
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h4>Phân Bố Tổng Điểm 6 Số vs Phân Phối Chuẩn Gauss</h4>
+          <div class="chart-wrapper">
+            <canvas id="chart-sum-dist"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <h4>Tỷ Lệ Chẵn / Lẻ</h4>
+          <div class="chart-wrapper">
+            <canvas id="chart-even-odd"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Biểu đồ tần suất toàn bộ các số -->
+      <div class="chart-card" style="margin-bottom: 2rem;">
+        <h4>Biểu Đồ Tần Suất Toàn Bộ Các Bóng Số</h4>
+        <div class="chart-wrapper" style="height: 320px;">
+          <canvas id="chart-frequency"></canvas>
+        </div>
+      </div>
+
+      <!-- Top Cặp Số Hay Về Cùng Nhau Nhất -->
+      <div class="pairs-card">
+        <h4>Top Cặp 2 Số Có Độ Tương Quan Đồng Xuất Hiện (Co-occurrence) Cao Nhất</h4>
+        <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0.25rem 0 1rem;">
+          Hệ số Lift > 1.0 cho biết xác suất hai số này đi cùng nhau cao hơn nhiều so với biến cố ngẫu nhiên độc lập.
+        </p>
+        <div style="overflow-x: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Thứ hạng</th>
+                <th>Cặp số</th>
+                <th>Số lần về cùng nhau</th>
+                <th>Tỷ lệ xuất hiện</th>
+                <th>Hệ số tương quan (Lift)</th>
+              </tr>
+            </thead>
+            <tbody id="pairs-table-body">
+              <!-- Render top pairs -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==================== TAB 3: CHẤM ĐIỂM & KIỂM TRA VÉ ==================== -->
+    <section class="tab-content-panel" id="tab-ticket-checker">
+      <div class="checker-card">
+        <h3 style="font-size: 1.4rem; font-weight: 800; text-align: center;">Chấm Điểm & Kiểm Tra Vé Số Của Bạn</h3>
+        <p style="color: var(--text-secondary); text-align: center; margin-top: 0.35rem; font-size: 0.9rem;">
+          Nhập 6 con số trên vé của bạn để hệ thống đánh giá theo chuẩn phân phối thống kê và đối soát xem vé này đã từng trúng giải nào trong lịch sử Vietlott!
+        </p>
+
+        <div class="checker-input-group">
+          <input type="text" id="ticket-input" class="checker-input" placeholder="Ví dụ: 05, 12, 23, 31, 40, 44" value="05, 12, 23, 31, 40, 44">
+          <button class="btn btn-primary" id="btn-check-ticket">
+            <span>🔍</span> Chấm Điểm Vé
+          </button>
+        </div>
+
+        <div class="ticket-checker-result" id="ticket-checker-result">
+          <!-- Render kết quả chấm điểm -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: LỊCH SỬ KỲ QUAY ==================== -->
+    <section class="tab-content-panel" id="tab-history">
+      <div class="history-controls">
+        <div>
+          <h3>Lịch Sử Quay Thưởng Toàn Diện</h3>
+          <p style="color: var(--text-secondary); font-size: 0.85rem;" id="history-showing-count">Đang tải...</p>
+        </div>
+        <div>
+          <input type="text" id="history-search-input" class="history-search-input" placeholder="🔍 Tìm theo mã kỳ hoặc ngày...">
+        </div>
+      </div>
+
+      <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); overflow: hidden;">
+        <div style="overflow-x: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Mã kỳ quay</th>
+                <th>Ngày mở thưởng</th>
+                <th>Bộ số trúng thưởng</th>
+                <th>Tổng điểm</th>
+                <th>Chẵn / Lẻ</th>
+              </tr>
+            </thead>
+            <tbody id="history-table-body">
+              <!-- Render danh sách kỳ quay -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+  </div> <!-- ==================== END VIETLOTT SECTION WRAPPER ==================== -->
+
+  <!-- ==================== TRADITIONAL LOTTERY SECTION WRAPPER (MIỀN NAM) ==================== -->
+  <div id="traditional-section-wrapper">
+    <div class="container">
+      
+      <!-- Thanh Bộ Lọc: Chọn Ngày & Chọn Đài Miền Nam -->
+      <div class="trad-filter-card">
+        <div class="trad-filter-row">
+          
+          <!-- Bộ chọn Ngày định dạng dd/mm/yyyy -->
+          <div class="date-selector-group">
+            <label for="trad-date-display" style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+              📅 Ngày quay:
+            </label>
+            <div class="custom-date-box">
+              <input type="text" id="trad-date-display" class="date-input date-text-input" placeholder="dd/mm/yyyy" maxlength="10">
+              <button type="button" class="date-calendar-trigger" id="btn-open-calendar" title="Chọn ngày trên lịch">
+                📅
+              </button>
+              <input type="date" id="trad-date-picker" class="hidden-date-picker" tabindex="-1">
+            </div>
+            <button class="date-quick-btn" id="btn-date-yesterday">Hôm qua</button>
+            <button class="date-quick-btn active" id="btn-date-today">Hôm nay</button>
+            <button class="date-quick-btn" id="btn-date-tomorrow">🔮 Ngày mai (Kỳ tiếp theo)</button>
+          </div>
+
+          <!-- Nhãn Miền Nam Độc Quyền -->
+          <div class="xsmn-region-badge">
+            <span class="xsmn-badge-icon">🌴</span>
+            <div class="xsmn-badge-info">
+              <span class="xsmn-badge-title">XỔ SỐ KIẾN THIẾT MIỀN NAM</span>
+              <span class="xsmn-badge-sub">21 Tỉnh Thành • Mở thưởng 16:15 Hàng Ngày</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Danh sách các đài mở thưởng trong ngày -->
+        <div class="trad-provinces-row">
+          <span class="provinces-label">🏛️ Chọn đài mở thưởng:</span>
+          <div id="trad-provinces-chips" style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+            <!-- Render các chip đài mở thưởng của ngày đã chọn -->
+          </div>
+          <span class="status-badge" id="trad-schedule-badge" style="margin-left: auto;">Quay thưởng lúc 16:15</span>
+        </div>
+      </div>
+
+      <!-- Khối 1: PHÒNG DỰ ĐOÁN & SỐ CẦN MUA CỦA ĐÀI MIỀN NAM -->
+      <section class="trad-pred-banner">
+        <div class="trad-pred-header">
+          <div class="trad-pred-title">
+            <span class="badge-sub" style="color: var(--vietlott-gold);">✨ Thuật Toán Soi Cầu Miền Nam</span>
+            <h2 id="trad-pred-heading">Dự Đoán Số Cần Mua - Xổ Số Miền Nam</h2>
+          </div>
+          <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <span class="status-badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.4);" id="trad-pred-conf">
+              Độ Tự Tin: 92%
+            </span>
+            <button class="btn btn-primary" id="btn-copy-trad-pred">
+              📋 Sao chép chốt số
+            </button>
+          </div>
+        </div>
+
+        <!-- Lưới 5 thẻ chốt số Miền Nam chính -->
+        <div class="trad-pred-grid xsmn-5col-grid">
+          
+          <!-- Thẻ 1: Bao Lô Đài Chính (BTL) -->
+          <div class="trad-pred-card">
+            <span class="trad-pred-card-label">🎯 BAO LÔ ĐÀI CHÍNH (BTL)</span>
+            <div class="trad-btl-digit" id="trad-btl-display">--</div>
+            <small style="color: var(--text-muted); font-size: 0.75rem;">1 con số nổ cao nhất trong 18 giải</small>
+          </div>
+
+          <!-- Thẻ 2: Song Thủ Bao Lô (STL) -->
+          <div class="trad-pred-card">
+            <span class="trad-pred-card-label">⚡ SONG THỦ BAO LÔ</span>
+            <div class="trad-stl-row" id="trad-stl-display">
+              <span>--</span>
+              <span class="hyphen">-</span>
+              <span>--</span>
+            </div>
+            <small style="color: var(--text-muted); font-size: 0.75rem;">Cặp số đảo bảo hiểm tỷ lệ về cao</small>
+          </div>
+
+          <!-- Thẻ 3: Xỉu Chủ VIP (3 Càng) -->
+          <div class="trad-pred-card">
+            <span class="trad-pred-card-label">🔮 XỈU CHỦ VIP (3 CÀNG)</span>
+            <div class="trad-xiuchu-box" id="trad-xiuchu-display">
+              <span>---</span>, <span>---</span>
+            </div>
+            <small style="color: var(--text-muted); font-size: 0.75rem;">Đánh xỉu chủ đầu (G7) & xỉu chủ đuôi (ĐB)</small>
+          </div>
+
+          <!-- Thẻ 4: Đầu - Đuôi Miền Nam -->
+          <div class="trad-pred-card">
+            <span class="trad-pred-card-label">👑 ĐẦU - ĐUÔI MIỀN NAM</span>
+            <div class="trad-dauduoi-box" id="trad-dauduoi-display">
+              <div>Đầu (Giải 8): <strong style="color: #38bdf8;">--</strong></div>
+              <div>Đuôi (Giải ĐB): <strong style="color: #f87171;">--</strong></div>
+            </div>
+            <small style="color: var(--text-muted); font-size: 0.75rem;">Chốt 2 số Giải 8 & 2 số cuối Giải ĐB</small>
+          </div>
+
+          <!-- Thẻ 5: Cặp Lô Đá (Đá Xiên 2, Đá Xiên 3) -->
+          <div class="trad-pred-card">
+            <span class="trad-pred-card-label">🔗 CẶP LÔ ĐÁ (ĐÁ XIÊN)</span>
+            <div class="trad-loda-box" id="trad-loda-display">
+              <div>Đá 2: <strong>-- × --</strong></div>
+              <div>Đá 3: <strong>-- × -- × --</strong></div>
+            </div>
+            <small style="color: var(--text-muted); font-size: 0.75rem;">Cặp số cùng về trong 18 giải đài</small>
+          </div>
+
+        </div>
+
+        <!-- Khối Gợi Ý Dàn 5 Vé Số Kiến Thiết 6 Chữ Số Mua Hôm Nay / Ngày Mai -->
+        <div class="ve-so-suggestion-card">
+          <div class="ve-so-header">
+            <div class="ve-so-title-group">
+              <span class="ve-so-icon">🎫</span>
+              <div>
+                <h3 class="ve-so-heading" id="ve-so-heading-title">Dàn 5 Vé Số Kiến Thiết 6 Chữ Số Gợi Ý Mua</h3>
+                <p class="ve-so-subheading">Các dãy vé số 6 chữ số chứa đuôi số vàng của đài đã chọn để mua ngoài đại lý vé số kiến thiết</p>
+              </div>
+            </div>
+            <button class="btn btn-outline btn-sm" id="btn-copy-all-tickets">
+              📋 Sao chép 5 vé số
+            </button>
+          </div>
+          <div class="ve-so-grid" id="trad-veso-grid">
+            <!-- Render 5 vé số 6 chữ số bằng JS -->
+          </div>
+        </div>
+
+        <!-- Lời giải thích nhịp cầu -->
+        <div class="trad-pred-footer">
+          <p class="trad-rationale-text" id="trad-rationale-display">
+            Đang phân tích nhịp cầu lô rơi và đầu đuôi câm của đài Miền Nam...
+          </p>
+          <button class="btn btn-outline" id="btn-regen-trad-pred">
+            🎲 Soi cầu lại
+          </button>
+        </div>
+      </section>
+
+      <!-- Khối 2: BẢNG KẾT QUẢ XỔ SỐ (KQXS) -->
+      <section class="trad-results-grid">
+        
+        <!-- Bảng Kết Quả Xổ Số -->
+        <div class="trad-table-card">
+          <div class="trad-table-header">
+            <h3 id="trad-table-title">Bảng Kết Quả Xổ Số</h3>
+            <span class="status-badge" id="trad-table-date-badge">--/--/----</span>
+          </div>
+
+          <div id="trad-table-content">
+            <!-- Render bảng giải chuẩn -->
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+  </div> <!-- ==================== END TRADITIONAL LOTTERY SECTION WRAPPER ==================== -->
+
+  <!-- ==================== FOOTER ==================== -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>
+        <strong>Lưu ý Khoa Học &amp; Pháp Lý:</strong> Xổ số là trò chơi may rủi có tính chất ngẫu nhiên độc lập. Các mô hình xác suất thống kê (Gauss, Ma trận tương quan, Mô phỏng Monte Carlo, Nhịp cầu lô rơi) được xây dựng nhằm mục đích nghiên cứu dữ liệu lớn, phân tích học thuật và hỗ trợ người dùng có thêm góc nhìn số liệu tham khảo khách quan, không đảm bảo 100% trúng thưởng. Hãy tham gia giải trí có trách nhiệm.
+      </p>
+      <p style="color: var(--text-muted); font-size: 0.75rem;">
+        Dữ liệu kết quả được đồng bộ từ hệ thống quay thưởng chính thức của Vietlott và các Công ty Xổ số Kiến thiết Miền Nam (XSMN).
+      </p>
+    </div>
+  </footer>
+
+  <!-- ==================== SCRIPTS ==================== -->
+  <script src="js/data.js"></script>
+  <script src="js/traditional_history.js"></script>
+  <script src="js/statistics.js"></script>
+  <script src="js/prediction.js"></script>
+  <script src="js/traditional_data.js"></script>
+  <script src="js/traditional_stats.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
